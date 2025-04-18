@@ -82,6 +82,7 @@ static int sym_index;
 literal literal_table[MAX_LINES];
 static int literal_index;
 
+
 /**
  * 오브젝트 코드 전체에 대한 정보를 담는 구조체이다.
  * Header Record, Define Recode,
@@ -107,19 +108,19 @@ typedef struct _object_code {
 	char r_name[10][7];
 
 	//T' line
-	int t_start_addr[MAX_LINES];//each line  start address
+	int t_addr[MAX_LINES];//each line  start address
 	int t_length[MAX_LINES]; //each line length
-	int text_count;//line size
+	int t_code[MAX_LINES];//code
 
 	// M' line
-	int m_addr[MAX_LINES]; // format 4 adress
+	int m_addr[MAX_LINES]; 
 	int m_length[MAX_LINES];
 	char m_name[7][MAX_LINES];
 
 	// E' line
 	int end;
 } object_code;
-
+object_code code[MAX_SEC];
 
 static int locctr;
 //--------------
@@ -152,6 +153,7 @@ int literal_check(char* temp);// literal 중복 체크
 int search_opcode(char* str);//operator -> opcode로 반환
 
 void split_table();
-void make_nibpxe();//nixbpe update
 int reg_num(char c);
-void search_table(char* s, int mode1, int mode2);//mode1(symbol인지 literal인지), mode2(몇번 째 파일인지)
+int search_sym(char* s, int mode);
+int search_lit(char* s);
+//void search_table(char* s, int mode);//몇 번재 파일인지

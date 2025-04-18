@@ -226,7 +226,6 @@ int token_parsing(char* str)
 		token_table[token_line]->operand[1],
 		token_table[token_line]->operand[2]);
 		
-		
 	token_line++;
 
 	return 0;
@@ -322,7 +321,6 @@ static int assem_pass1(void)
 					continue;
 				}
 
-
 				if (token_table[token_line - 1]->operator != NULL) {
 					if ((strcmp(token_table[token_line - 1]->operator,"CSECT") == 0)
 						|| (strcmp(token_table[token_line - 1]->operator,"END") == 0)) { //CSEC과 END일 때 literal 처리해줘야
@@ -352,9 +350,6 @@ static int assem_pass1(void)
 					continue;
 				}
 
-				
-
-
 				//symbol table register
 				if (token_table[token_line - 1]->label != NULL // NULL pointer check and non valid value cheking and comment check
 					&& token_table[token_line - 1]->label[0] != '\0'
@@ -363,14 +358,6 @@ static int assem_pass1(void)
 					strcpy_s(sym_table[sym_index].symbol, sizeof(sym_table[sym_index].symbol), token_table[token_line - 1]->label);
 					sym_table[sym_index].addr = locctr;
 					sym_index++;
-				}
-				//+ fromat4 checking
-				if (token_table[token_line - 1]->operator != NULL) {
-					temp = token_table[token_line - 1]->operator;
-					if (token_table[token_line - 1]->operator[0] == '+') {
-						temp++;
-						isFormat4 = 1;
-					}
 				}
 
 				//= literal checking
@@ -395,6 +382,15 @@ static int assem_pass1(void)
 						literal_flag = 1;
 						literal_table[literal_index].literal = _strdup(token_table[token_line - 1]->operand[0]);
 						literal_index++;
+					}
+				}
+
+				//+ fromat4 checking
+				if (token_table[token_line - 1]->operator != NULL) {
+					temp = token_table[token_line - 1]->operator;
+					if (token_table[token_line - 1]->operator[0] == '+') {
+						temp++;
+						isFormat4 = 1;
 					}
 				}
 
@@ -438,7 +434,7 @@ static int assem_pass1(void)
 						locctr += 3;
 					}
 					else if (strcmp(temp, "BYTE") == 0) {//if RESW ,add byte size
-						locctr ++;
+						locctr++;
 					}
 				}
 			}
@@ -620,26 +616,72 @@ void make_literaltab_output(char* filename)
 }
 
 
-void make_nibpxe() {
+void make_object() {//byte word 처리해야함 ㅈ같네 literal도
 
 	int ta = 0, pc = 0;// target address and program counter
 	int index=0;
-	int isFormat2 = 0;
-	for (int i = 0; i < token_line; i++) {
+	char* temp;
+	char* literal_temp=NULL;
+	int format = 0;
+	int last = 0;//last 3byte or 5byte
+	int file_num = 0;//file 3개 0 : main 1 : REDREC 2: WEREC
+	int reg1=0, reg2=0;
+	int op = 0;
+	int literal_flag = 0;
+	
+	split_table();
 
+	for (int i =0; i < token_line; i++) {
+		op = -1;
+		format = -1; literal_flag = 0;
+		ta = 0; pc = 0;
+		if (token_table[i]->operator != NULL) {
+			//HEADER저장
+        	if (strcmp("START", token_table[i]->operator) == 0) {
+				code[file_num].p_name[0] = 'H';
+				strcpy((code[file_num].p_name + 1), token_table[i]->label);
+				continue;
+			}
+			if (strcmp("EXTDEF", token_table[i]->operator) == 0) {
+				for (int j = 0; j < 3; j++) {
+					if (token_table[i]->operand[j] != NULL) {
+						strcpy(code[file_num].d_name[j], token_table[i]->operand[j]);
+						code[file_num].d_addr[j] = search_sym(token_table[i]->operand[j], file_num);
+					}
+				}
+				continue;
+			}
+			if (strcmp("EXTREF", token_table[i]->operator) == 0) {
+				for (int j = 0; j < 3; j++) {
+					if (token_table[i]->operand[j] != NULL) {
+						strcpy(code[file_num].r_name[j], token_table[i]->operand[j]);
+					}
+				}
+				continue;
+			}
+			if (strcmp("CSECT", token_table[i]->operator) == 0) {
+				file_num++;
+				literal_flag = 0;
+				continue;
+			}
+		}
+		
+		//START t line setting
 		//n, i value setting
-		if (token_table[i]->operand[0][0] == '@') {
-			token_table[i]->nixbpe += 0B00100000;//0010_0000
+		token_table[i]->nixbpe = 0B00000000;
+		if (token_table[i]->operand[0] != NULL) {
+			if (token_table[i]->operand[0][0] == '@') {
+				token_table[i]->nixbpe += 0B00100000;//0010_0000
+			}
+			else if (token_table[i]->operand[0][0] == '#') {
+				token_table[i]->nixbpe += 0B00010000;//0001_0000;
+			}
+			else {
+				token_table[i]->nixbpe += 0B00110000;//0011_0000
+			}
 		}
-		else if (token_table[i]->operand[0][0] == '#') {
-			token_table[i]->nixbpe += 0B00010000;//0001_0000;
-		}
-		else {
-			token_table[i]->nixbpe += 0B00110000;//0011_0000
-		}
-
 		//x setting
-		if (token_table[i]->operand[1] != NULL && (token_table[i]->operand[i] == 'X')) {
+		if (token_table[i]->operand[1] != NULL && (token_table[i]->operand[1][0] == 'X')) {
 			token_table[i]->nixbpe += 0B00001000;//00_1000
 		}
 
@@ -648,29 +690,195 @@ void make_nibpxe() {
 			token_table[i]->nixbpe += 0B00000001;//0000_0001
 		}
 
+		
 
-		//bp setting
-		index = search_opcode(token_table[i]->operand);
-		if (index != -1) {//if it doesn't exist, return -1;
-			if (inst_table[index]->format == 2) isFormat2 = 1;
+		///////////////
+		//bp setting and last 
+		///////////////
+
+		if (token_table[i]->operator != NULL) {
+			temp = token_table[i]->operator;
+			if (token_table[i]->operator[0] == '+') {
+				temp++;
+				format = 4;
+				index = search_opcode(temp);
+				if (index != -1) {//if it doesn't exist, return -1;
+					op = inst_table[index]->op;
+				}
+			}
+			else {
+				index = search_opcode(temp);
+				if (index != -1) {//if it doesn't exist, return -1;
+					format = inst_table[index]->format;
+					op = inst_table[index]->op;
+				}
+			}
+		}
+		
+		//foramt 2 3 4 others condition
+		if (format == -1) {
+			if (token_table[i]->operator != NULL) {
+
+				if ((strcmp(token_table[i]->operator,"WORD") == 0) || strcmp(token_table[i]->operator,"BYTE") == 0) {
+					if (token_table[i]->operand[0] != NULL) {
+						char* temp2 = strchr(token_table[i]->operand[0], '\'');
+						int t = 0;
+						code[file_num].t_code[i] = 0;
+						if (temp2 == NULL) {
+							code[file_num].t_code[i] = 0;
+						}
+						else {
+							if (token_table[i]->operand[0] != 'X') {
+								while (*temp2 != '\'') {
+									code[file_num].t_code[i] += atoi(*temp2);
+									code[file_num].t_code[i] = code[file_num].t_code[i] << 4;
+									temp2++;
+								}
+							}
+							else if (token_table[i]->operand[0] != 'C') {
+								while (*temp2 != '\'') {
+									code[file_num].t_code[i] += *temp2;
+									code[file_num].t_code[i] = code[file_num].t_code[i] << 4;
+									temp2++;
+								}
+							}
+						}
+					}
+				
+				}
+				
+				if (strcmp("LTORG", token_table[i]->operator) == 0 && (literal_flag)) {//literal flag free
+					literal_flag = 0;
+					char* temp2 = strchr(token_table[i]->operand[0], '\'');
+					int t = 0;
+					code[file_num].t_code[i] = 0;
+					literal_temp = NULL;
+					while (*temp2 != '\'') {
+						code[file_num].t_code[i] += *temp2;
+						code[file_num].t_code[i] = code[file_num].t_code[i] << 4;
+						temp2++;
+					}
+				}
+			}
+			printf("%x \n", code[file_num].t_code[i]);
+			continue;
 		}
 		else {
-			isFormat2 = 0;
-		}
+			if (format == 2) {
+				reg1 = 0; reg2 = 0;
+				if (token_table[i]->operand[0] != NULL) {
+					reg1 = reg_num(token_table[i]->operand[0][0]);
+				}
+				if (token_table[i]->operand[1] != NULL) {
+					reg2 = reg_num(token_table[i]->operand[1][0]);
+				}
+				code[file_num].t_code[i] = (op << 8);
+				last = (reg1 << 4) + (reg2);
+				code[file_num].t_code[i] += last;
+				printf("%x \n", code[file_num].t_code[i]);
+				continue;
+			}
+			else if (format == 3) {
 
-		if (isFormat2) {
-			int reg1 = reg_num(token_table[i]->operand[0]);
-			int reg2 = reg_num(token_table[i]->operand[1]);
-			int reg3 = reg_num(token_table[i]->operand[2]);
-		}
-		else {
-			
+				if (token_table[i]->operand[0] != NULL) {
+					ta = search_sym(token_table[i]->operand[0], file_num);//target address 
+					if (token_table[i]->operand[0][0] == '@') {//@
+						ta = search_sym(token_table[i]->operand[0] + 1, file_num);
+					}
+					if (token_table[i]->operand[0][0] == '=') {//=
+						ta = search_lit(token_table[i]->operand[0]);
+						literal_temp = (char*)malloc(strlen(token_table[i]->operand[0]));
+						strcpy(literal_temp, token_table[i]->operand[0]);
+						literal_flag = 1;
+					}
+					if (ta == -1) {//modified 처리 해주기
+						last = 0;
+						if (token_table[i]->operand[0][0] == '#') {
+							last = atoi(token_table[i]->operand[0] + 1);
+						}
+					}
+					else {
+						pc = token_table_addr[i + 1];
+						last = ta - pc;
+						if (last < 2048 && last >= -2048) {//12bit arrange check
+							token_table[i]->nixbpe += 0B00000010;//0000_0010
+							last &= (0xFFF);//signed bit 오염 방지
+						}
+						else {
+							token_table[i]->nixbpe += 0B00000100;//In this project doesn't know base addr 
+						}
+					}
+				}
+				else {//format3이면서 operand 없을 때에도 ni bit 업데이트
+					token_table[i]->nixbpe += 0B00110000;
+					last = 0;
+
+				}
+			}
+			else if (format == 4) {
+				ta = search_sym(token_table[i]->operand[0], file_num);
+				if (ta == -1) {//modified 처리 해주기
+					last = 0;
+					if (token_table[i]->operand[0][0] == '#') {
+						last = atoi(token_table[i]->operand[0] + 1);
+					}
+				}
+				else {
+					last = ta;
+				}
+			}
+
+			/*code 업데이트*/
+			code[file_num].t_code[i] = (op << 4) + token_table[i]->nixbpe;
+			if (format == 3) {
+				code[file_num].t_code[i] = code[file_num].t_code[i] << 12;//3*4
+			}
+			else if (format == 4) {
+				code[file_num].t_code[i] = code[file_num].t_code[i] << 20;//5*4
+			}
+			code[file_num].t_code[i] += last;
+
+			printf("%x \n", code[file_num].t_code[i]);
 		}
 	}
 }
-void search_table(char* s, int mode1, int mode2) {//mode1(symbol인지 literal인지), mode2(몇번 째 파일인지)
+
+//literal도 많아지면 이런식으로 관리해야할 것 같음.
+//이번 과제에서는 literal이 파일 당 하나이고 주소값이 다르기 때문에 굳이 구분하지 않았다.
+int search_sym(char* s , int mode) {//mode : file 범위
 	
+	int i = 0, start=0, end=0;
+
+	if (mode == 0) {
+		start = 0;
+		end = sym_len[0];
+	}
+	else if(mode == 1){
+		start = sym_len[0];
+		end = start + sym_len[1];
+	}
+	else if (mode == 2) {
+		start = sym_len[0] + sym_len[1];
+		end = start + sym_len[2];
+	}
+	
+	for (i = start; i < end; i++) {
+		if (strcmp(&sym_table[i].symbol,s) == 0) {
+			return sym_table[i].addr;
+		}
+	}
+	return -1;
 }
+
+int search_lit(char* s) {
+	for (int i = 0; i < literal_index; i++) {
+		if (strcmp(literal_table[i].literal, s) == 0) {
+			return literal_table[i].addr;
+		}
+	}
+	return -1;
+}
+
 void split_table() {
 	int i = 0;
 	int n = 0;
@@ -693,24 +901,21 @@ void split_table() {
 	}*/
 }
 
+///reg table
+//return regoster number
 int reg_num(char c) {
-	switch (c)//regoster number
+	switch (c)
 	{
 	case 'A': return 0; break;
 	case 'X': return 1; break;
-	case 'B': return 2; break;
-	case 'S': return 3; break;
-	case 'T': return 4; break;
-	case 'F': return 5; break;
-	default: return -1;  break;
+	case 'B': return 3; break;
+	case 'S': return 4; break;
+	case 'T': return 5; break;
+	case 'F': return 6; break;
+	default: return 0;  break;
 	}
 }
 
-void make_machineCode() { 
-
-	/* add your code here */
-
-}
 
 
 /* ------------------------------------------------------------
@@ -727,14 +932,8 @@ void make_machineCode() {
 static int assem_pass2(void)
 {
 	/* add your code here */
-	int i = 0;
+	make_object();
 
-	int ta = 0, pc = 0;// target address and program counter
-
-	for (i = 0; i < token_line; i++) {
-		
-	}
-	split_tables();
 }
 
 /* ------------------------------------------------------------
