@@ -219,12 +219,12 @@ int token_parsing(char* str)
 		}
 	}
 	
-	printf("%s %s %s %s %s    ",
+	/*printf("%s %s %s %s %s    \n",
 		token_table[token_line]->label,
 		token_table[token_line]->operator,
 		token_table[token_line]->operand[0],
 		token_table[token_line]->operand[1],
-		token_table[token_line]->operand[2]);
+		token_table[token_line]->operand[2]);*/
 		
 	token_line++;
 
@@ -304,7 +304,8 @@ static int assem_pass1(void)
 	int literal_len = 0;
 	int literal_flag = 0;
 	int j = 0;
-
+	int sec = 0;//0,1,2,3 literal 처리시 필요한 변수
+	int file_sec = 0;//0, 1, 2
 	for (i = 0; i < line_num; i++) {// whole line process => tokenization
 		isFormat4 = 0;//format4 init
 		temp = NULL;
@@ -329,6 +330,7 @@ static int assem_pass1(void)
 							for (; j < literal_index; j++) {
 								literal_table[j].addr = locctr;
 								literal_len = strlen(literal_table[j].literal);
+								lit_len[sec]++;
 								if (literal_table[j].literal[1] == 'C') {
 									locctr += (literal_len - 4);
 								}
@@ -337,6 +339,8 @@ static int assem_pass1(void)
 								}
 							}
 						}
+						sec++;
+						code[file_sec++].p_length = locctr;//program length 처리
 					}
 				}
 
@@ -367,6 +371,7 @@ static int assem_pass1(void)
 						literal_table[j].addr = locctr;
 						token_table_addr[token_line - 1] = locctr;
 						literal_len = strlen(literal_table[j].literal);
+						lit_len[sec]++;
 						if (literal_table[j].literal[1] == 'C') {
 							locctr += (literal_len-4);
 						}
@@ -374,6 +379,7 @@ static int assem_pass1(void)
 							locctr += (literal_len - 4) / 2;
 						}
 					}
+					sec++;
 				}
 
 				//literal 일 때
@@ -439,7 +445,7 @@ static int assem_pass1(void)
 				}
 			}
 		}
-		printf("%04x\n",token_table_addr[token_line-1]);
+		//printf("%04x\n",token_table_addr[token_line-1]);
 	}
 	return 0;
 }
@@ -621,25 +627,31 @@ void make_object() {//byte word 처리해야함 ㅈ같네 literal도
 	int ta = 0, pc = 0;// target address and program counter
 	int index=0;
 	char* temp;
-	char* literal_temp=NULL;
+	//char* literal_temp=NULL;
 	int format = 0;
 	int last = 0;//last 3byte or 5byte
 	int file_num = 0;//file 3개 0 : main 1 : REDREC 2: WEREC
-	int reg1=0, reg2=0;
-	int op = 0;
-	int literal_flag = 0;
-	
-	split_table();
+	int reg1=0, reg2=0;//format 2
+	int op = 0;//opcode
+	//int literal_flag = 0;
+	int sec = 0;//control section literal processing variable
+	int sec_first = 0;// control section literal processing variable (arragne's first value)
+	int sec_len[MAX_SEC] = {0,};//아직 사용X
+	int m_index[MAX_SEC] = {0,};//modified용
 
+	split_table();
+	int start = 0, end = 0;
+	
 	for (int i =0; i < token_line; i++) {
+		printf("%6x %s\n", token_table_addr[i],token_table[i]->operator);
 		op = -1;
-		format = -1; literal_flag = 0;
+		format = -1;// literal_flag = 0;
 		ta = 0; pc = 0;
 		if (token_table[i]->operator != NULL) {
 			//HEADER저장
         	if (strcmp("START", token_table[i]->operator) == 0) {
-				code[file_num].p_name[0] = 'H';
-				strcpy((code[file_num].p_name + 1), token_table[i]->label);
+				//code[file_num].p_name[0] = 'H';
+				strcpy((code[file_num].p_name ), token_table[i]->label);
 				continue;
 			}
 			if (strcmp("EXTDEF", token_table[i]->operator) == 0) {
@@ -661,8 +673,11 @@ void make_object() {//byte word 처리해야함 ㅈ같네 literal도
 			}
 			if (strcmp("CSECT", token_table[i]->operator) == 0) {
 				file_num++;
-				literal_flag = 0;
-				continue;
+				//literal_flag = 0;
+				//code[file_num].p_name[0] = 'H';
+				strcpy((code[file_num].p_name ), token_table[i]->label);
+				sec++;
+				//continue;
 			}
 		}
 		
@@ -714,53 +729,118 @@ void make_object() {//byte word 처리해야함 ㅈ같네 literal도
 				}
 			}
 		}
-		
+		code[file_num].t_format[i] = format;
 		//foramt 2 3 4 others condition
 		if (format == -1) {
+			
 			if (token_table[i]->operator != NULL) {
-
+				if ((strcmp(token_table[i]->operator,"CSECT") == 0) ||  (strcmp(token_table[i]->operator,"LTORG") == 0) || (strcmp(token_table[i]->operator,"END") == 0)) {
+					int k;
+					
+					for (k = sec_first; k < lit_len[sec]+ sec_first; k++) {
+						char* temp2;
+						temp2 = literal_table[k].literal+1;
+						if (*temp2 == 'X') {
+							temp2+=2;
+							code[file_num].t_code[i] += strtol(temp2, NULL, 16);
+						}
+						else if (*temp2 == 'C') {
+							temp2+=2;
+							while (*temp2 != '\'') {
+								code[file_num].t_code[i] += *temp2;
+								code[file_num].t_code[i] = code[file_num].t_code[i] << 8;
+								temp2++;
+							}
+							code[file_num].t_code[i] = code[file_num].t_code[i] >> 8;//while loop 로직 상 뒤로 한번 shift해줘야함
+						}
+					}
+					/*if (strcmp("CSECT", token_table[i]->operator) == 0) {
+						code[file_num - 1].p_length = token_table_addr[i-1];
+						
+					}
+					if (strcmp("END", token_table[i]->operator) == 0) {
+						code[file_num].p_length = token_table_addr[i];
+					}*/
+					sec_first += k;
+					sec++;
+				}
+				//printf("%s %s %s\n", token_table[i]->label, token_table[i]->operator, token_table[i]->operand[0]);
 				if ((strcmp(token_table[i]->operator,"WORD") == 0) || strcmp(token_table[i]->operator,"BYTE") == 0) {
+
 					if (token_table[i]->operand[0] != NULL) {
-						char* temp2 = strchr(token_table[i]->operand[0], '\'');
-						int t = 0;
+
+						char* temp2 = token_table[i]->operand[0];
+						while (*temp2 != '\'') {
+							temp2++;
+						}
+						//temp2++;
+						
 						code[file_num].t_code[i] = 0;
 						if (temp2 == NULL) {
 							code[file_num].t_code[i] = 0;
 						}
 						else {
-							if (token_table[i]->operand[0] != 'X') {
-								while (*temp2 != '\'') {
-									code[file_num].t_code[i] += atoi(*temp2);
-									code[file_num].t_code[i] = code[file_num].t_code[i] << 4;
-									temp2++;
-								}
+							if (token_table[i]->operand[0][0] == 'X') {
+								temp2++;
+								code[file_num].t_code[i] += strtol(temp2, NULL, 16);//16진수 변환
 							}
-							else if (token_table[i]->operand[0] != 'C') {
+							else if (token_table[i]->operand[0][0] == 'C') {
+								temp2++;
 								while (*temp2 != '\'') {
 									code[file_num].t_code[i] += *temp2;
-									code[file_num].t_code[i] = code[file_num].t_code[i] << 4;
+									code[file_num].t_code[i] = code[file_num].t_code[i] << 8;
 									temp2++;
+								}
+								code[file_num].t_code[i] = code[file_num].t_code[i] >> 8;//while loop 로직 상 뒤로 한번 shift해줘야함
+							}
+							else {//BUFFEDN-BUFFER 연산자 뭐 빼기 뭐 빼기 더 많을 때는 일단 skip
+								ta = search_sym(token_table[i]->operand[0], file_num);
+								if (ta == -1) {
+									char symbol1[20] = { 0 }, symbol2[20] = { 0 };
+									char operator = 0;
+									char* operand = token_table[i]->operand[0];
+									char* op_pos = NULL;
+
+									// 연산자 위치 탐색
+									op_pos = strchr(operand, '+');
+									if (op_pos) operator = '+';
+									else {
+										op_pos = strchr(operand, '-');
+										if (op_pos) operator = '-';
+									}
+
+									if (op_pos == NULL) {
+										printf("no operator: %s\n", operand);
+										//return -1;
+									}
+
+									// 연산자 앞 부분 → symbol1
+									strncpy(symbol1, operand, op_pos - operand);
+									symbol1[op_pos - operand] = '\0';
+
+									// 연산자 뒤 부분 → symbol2
+									strcpy(symbol2, op_pos + 1);
+									if (search_sym(symbol1, file_num) == -1) {
+										code[file_num].m_addr[m_index[file_num]] = token_table_addr[i];
+										code[file_num].m_length[m_index[file_num]] = 6;
+										char sign[10];
+										sprintf(sign, "+%s", symbol1);
+										code[file_num].m_name[m_index[file_num]++] = _strdup(sign);
+									}
+									if ((search_sym(symbol2, file_num) == -1)) {
+										code[file_num].m_addr[m_index[file_num]] = token_table_addr[i];
+										code[file_num].m_length[m_index[file_num]] = 6;
+										char sign[10];
+										sprintf(sign, "%c%s", operator, symbol2);
+										code[file_num].m_name[m_index[file_num]++] = _strdup(sign);
+									}
 								}
 							}
 						}
 					}
-				
-				}
-				
-				if (strcmp("LTORG", token_table[i]->operator) == 0 && (literal_flag)) {//literal flag free
-					literal_flag = 0;
-					char* temp2 = strchr(token_table[i]->operand[0], '\'');
-					int t = 0;
-					code[file_num].t_code[i] = 0;
-					literal_temp = NULL;
-					while (*temp2 != '\'') {
-						code[file_num].t_code[i] += *temp2;
-						code[file_num].t_code[i] = code[file_num].t_code[i] << 4;
-						temp2++;
-					}
 				}
 			}
-			printf("%x \n", code[file_num].t_code[i]);
+			//printf("%x \n", code[file_num].t_code[i]);
 			continue;
 		}
 		else {
@@ -775,7 +855,7 @@ void make_object() {//byte word 처리해야함 ㅈ같네 literal도
 				code[file_num].t_code[i] = (op << 8);
 				last = (reg1 << 4) + (reg2);
 				code[file_num].t_code[i] += last;
-				printf("%x \n", code[file_num].t_code[i]);
+				//printf("%x \n", code[file_num].t_code[i]);
 				continue;
 			}
 			else if (format == 3) {
@@ -787,14 +867,21 @@ void make_object() {//byte word 처리해야함 ㅈ같네 literal도
 					}
 					if (token_table[i]->operand[0][0] == '=') {//=
 						ta = search_lit(token_table[i]->operand[0]);
-						literal_temp = (char*)malloc(strlen(token_table[i]->operand[0]));
-						strcpy(literal_temp, token_table[i]->operand[0]);
-						literal_flag = 1;
+						//literal_temp = (char*)malloc(strlen(token_table[i]->operand[0]));
+						//strcpy(literal_temp, token_table[i]->operand[0]);
+						//literal_flag = 1;
 					}
 					if (ta == -1) {//modified 처리 해주기
 						last = 0;
 						if (token_table[i]->operand[0][0] == '#') {
 							last = atoi(token_table[i]->operand[0] + 1);
+						}
+						else {
+							code[file_num].m_addr[m_index[file_num]] = token_table_addr[i]+1;
+							code[file_num].m_length[m_index[file_num]] = 5;
+							char sign[10];
+							sprintf(sign,"+%s", token_table[i]->operand[0]);
+							code[file_num].m_name[m_index[file_num]++] = _strdup(sign);
 						}
 					}
 					else {
@@ -822,12 +909,19 @@ void make_object() {//byte word 처리해야함 ㅈ같네 literal도
 					if (token_table[i]->operand[0][0] == '#') {
 						last = atoi(token_table[i]->operand[0] + 1);
 					}
+					else {
+						code[file_num].m_addr[m_index[file_num]] = token_table_addr[i]+1;
+						code[file_num].m_length[m_index[file_num]] = 5;
+						char sign[10];
+						sprintf(sign, "+%s", token_table[i]->operand[0]);
+						code[file_num].m_name[m_index[file_num]++] = _strdup(sign);
+					}
 				}
 				else {
 					last = ta;
 				}
 			}
-
+			code[file_num].t_format[i] = format;
 			/*code 업데이트*/
 			code[file_num].t_code[i] = (op << 4) + token_table[i]->nixbpe;
 			if (format == 3) {
@@ -838,22 +932,23 @@ void make_object() {//byte word 처리해야함 ㅈ같네 literal도
 			}
 			code[file_num].t_code[i] += last;
 
-			printf("%x \n", code[file_num].t_code[i]);
+			//printf("%x \n", code[file_num].t_code[i]);
 		}
+
 	}
 }
 
 //literal도 많아지면 이런식으로 관리해야할 것 같음.
 //이번 과제에서는 literal이 파일 당 하나이고 주소값이 다르기 때문에 굳이 구분하지 않았다.
-int search_sym(char* s , int mode) {//mode : file 범위
-	
-	int i = 0, start=0, end=0;
+int search_sym(char* s, int mode) {//mode : file 범위
+
+	int i = 0, start = 0, end = 0;
 
 	if (mode == 0) {
 		start = 0;
 		end = sym_len[0];
 	}
-	else if(mode == 1){
+	else if (mode == 1) {
 		start = sym_len[0];
 		end = start + sym_len[1];
 	}
@@ -861,9 +956,9 @@ int search_sym(char* s , int mode) {//mode : file 범위
 		start = sym_len[0] + sym_len[1];
 		end = start + sym_len[2];
 	}
-	
+
 	for (i = start; i < end; i++) {
-		if (strcmp(&sym_table[i].symbol,s) == 0) {
+		if (strcmp(&sym_table[i].symbol, s) == 0) {
 			return sym_table[i].addr;
 		}
 	}
@@ -933,7 +1028,78 @@ static int assem_pass2(void)
 {
 	/* add your code here */
 	make_object();
+	//word나 byte 0채워주기
+	FILE* fp;
+	fopen_s(&fp, "output.txt", "w");//open file
+	if (fp == NULL) {//NULL exception
+		printf("Failure");
+		return;
+	}
 
+	
+
+	for (int i = 0; i < 3; i++) {
+		printf("H%-6s%06x%06x\n",code[i].p_name, code[i].h_start_addr, code[i].p_length);
+
+		if (code[i].d_name[0][0] != '\0') {
+			printf("D");
+			for (int j = 0; j < 10; j++) {
+				if (code[i].d_addr[j] != 0)
+					printf("%6s%06x", code[i].d_name[j], code[i].d_addr[j]);
+			}
+			printf("\n");
+		}
+		
+		printf("R");
+		for (int j = 0; j < 10; j++) {
+			if (code[i].r_name[j][0] != '\0') 
+				printf("%-6s", code[i].r_name[j]);
+		}
+		printf("\n");
+
+
+
+		int line_length = 0;
+		int start = 0;
+		int res_flag = 0;
+		//int prev = 0;
+		//printf("T");
+		for (int j = 0; j < 100; j++) {
+			if (code[i].t_code[j] != 0) {
+				/*if (code[i].t_format[j] == 2) {
+					printf("%04x", code[i].t_code[j]);
+					line_length += 2;
+				}else if (code[i].t_format[j] == 3) {
+					printf("%06x", code[i].t_code[j]);
+					line_length += 3;
+				}else if (code[i].t_format[j] == 4) {
+					printf("%08x", code[i].t_code[j]);
+					line_length += 4;
+				}
+				else {
+					printf("%x", code[i].t_code[j]);
+				}*/
+			}
+			else {
+				if (strcmp(token_table[j]->operator, "RESW") == 0 ||strcmp(token_table[j]->operator, "RESB") == 0) {
+					if (res_flag == 0) {
+
+						
+						res_flag = 1;
+					}
+				}
+			}
+		}
+		printf("\n");
+
+		for (int j = 0; j < 5; j++) {
+			if (code[i].m_name[j] == NULL) continue;
+			if(code[i].m_name[j][0] != '\0')
+				printf("M%06x%02x%-6s \n", code[i].m_addr[j],code[i].m_length[j] ,code[i].m_name[j]);
+		}
+		printf("\n\n\n");
+
+	}
 }
 
 /* ------------------------------------------------------------
