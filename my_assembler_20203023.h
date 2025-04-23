@@ -113,7 +113,6 @@ typedef struct _object_code {
 	int t_length[MAX_LINES]; //each line length
 	int t_code[MAX_LINES];//code
 	int t_format[MAX_LINES];
-	int t_lines;//number of lines
 
 	// M' line
 	int m_addr[MAX_LINES]; 
