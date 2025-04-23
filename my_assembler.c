@@ -830,8 +830,7 @@ static int assem_pass2(void)
 			if ((strcmp(token_table[i]->operator,"EQU") == 0)) continue;
 
 			// END LTORG SETTING
-			if (/*(strcmp(token_table[i]->operator,"CSECT") == 0) ||*/  (strcmp(token_table[i]->operator,"LTORG") == 0) || (strcmp(token_table[i]->operator,"END") == 0)) {
-				//여기 굉장히 수정해야함
+			if ( (strcmp(token_table[i]->operator,"LTORG") == 0) || (strcmp(token_table[i]->operator,"END") == 0)) {
 				char* temp2;
 				temp2 = literal_table[sec_first].literal + 1;
 				if (*temp2 == 'X') {
@@ -855,7 +854,7 @@ static int assem_pass2(void)
 
 				if (token_table[i]->operand[0] == NULL) continue;
 
-				/*\' 처리*/
+				/*' 처리*/
 				char* temp2 = token_table[i]->operand[0];
 				while (*temp2 != '\'') temp2++;// ' 찾기
 				if (temp2 == NULL) {//' 없을 대
@@ -873,7 +872,6 @@ static int assem_pass2(void)
 							code[file_num].t_code[sec_len[file_num]] = code[file_num].t_code[sec_len[file_num]] << 8;
 							temp2++;
 						}
-						//while loop 로직 상 뒤로 한번 shift해줘야함
 						code[file_num].t_code[sec_len[file_num]] = code[file_num].t_code[sec_len[file_num]] >> 8;
 					}
 					else {//BUFFEDN-BUFFER 처리
@@ -1048,23 +1046,34 @@ void make_objectcode_output(char* file_name)
 
 	for (i = 0; i < 3; i++) {
 		printf("H%-6s%06x%06x\n", code[i].p_name, code[i].h_start_addr, code[i].p_length);
-
+		fprintf(fp, "H%-6s%06x%06x\n", code[i].p_name, code[i].h_start_addr, code[i].p_length);
 		if (code[i].d_name[0][0] != '\0') {
 			printf("D");
+			fprintf(fp,"D");
 			for (int j = 0; j < 10; j++) {
-				if (code[i].d_addr[j] != 0)
+				if (code[i].d_addr[j] != 0) {
 					printf("%6s%06x", code[i].d_name[j], code[i].d_addr[j]);
+					fprintf(fp, "%6s%06x", code[i].d_name[j], code[i].d_addr[j]);
+				}		
 			}
 			printf("\n");
+			fprintf(fp,"\n");
 		}
 
 		printf("R");
+		fprintf(fp, "R");
 		for (int j = 0; j < 10; j++) {
-			if (code[i].r_name[j][0] != '\0')
+			if (code[i].r_name[j][0] != '\0') {
 				printf("%-6s", code[i].r_name[j]);
+				fprintf(fp,"%-6s", code[i].r_name[j]);
+			}
+				
 		}
 		printf("\n");
+		fprintf(fp, "\n");
 
+
+		/*Setting start address and length for T line */
 		if (code[i].p_length <= 30) {
 			code[i].t_staddr[0] = 0;
 			code[i].t_length[0] = code[i].p_length;
@@ -1096,65 +1105,83 @@ void make_objectcode_output(char* file_name)
 				}
 				if (code[i].t_code[j] == 0x1000000) {//마지막에 word 있을 떼 000000 처리
 					code[i].t_staddr[t_line] = start;
-					printf("adfasdf %x %x\n", start, code[i].t_addr[j]);
 					code[i].t_length[t_line] = code[i].t_addr[j] - start +3 ;
 					start = code[i].t_addr[j];
 				}
 			}
 		}
 
+		/*Writing T Line*/
 		line_length = 0;
 		line_num = 0;
-		printf("T%06x %02x ", code[i].t_staddr[line_num], code[i].t_length[line_num]);
+		printf("T%06x%02x", code[i].t_staddr[line_num], code[i].t_length[line_num]);
+		fprintf(fp,"T%06x%02x", code[i].t_staddr[line_num], code[i].t_length[line_num]);
+
 		for (j = 0; j < sec_len[i]; j++) {
 			if (code[i].t_code[j] != 0) {
-
 				if (line_length >= code[i].t_length[line_num]) {
 					if (code[i].t_length[line_num] != 0) {
 						printf("\n");
+						fprintf(fp,"\n");
 						line_num++;
 						line_length = 0;
-						printf("T%06x %02x", code[i].t_staddr[line_num], code[i].t_length[line_num]);
+						printf("T%06x%02x", code[i].t_staddr[line_num], code[i].t_length[line_num]);
+						fprintf(fp, "T%06x%02x", code[i].t_staddr[line_num], code[i].t_length[line_num]);
 					}
 
 				}
 				if (code[i].t_format[j] == 2) {
-					printf("%04x ", code[i].t_code[j]);
+					printf("%04x", code[i].t_code[j]);
+					fprintf(fp,"%04x", code[i].t_code[j]);
 					line_length += 2;
 				}
 				else if (code[i].t_format[j] == 3) {
-					printf("%06x ", code[i].t_code[j]);
+					printf("%06x", code[i].t_code[j]);
+					fprintf(fp,"%06x", code[i].t_code[j]);
 					line_length += 3;
 				}
 				else if (code[i].t_format[j] == 4) {
-					printf("%08x ", code[i].t_code[j]);
+					printf("%08x", code[i].t_code[j]);
+					fprintf(fp,"%08x", code[i].t_code[j]);
 					line_length += 4;
 				}
 				else {
 					if (code[i].t_code[j] == 0x1000000) {
-						printf("%06x ", 0);
+						printf("%06x", 0);
+						fprintf(fp,"%06x", 0);
 					}
 					else {
-						printf("%02x ", code[i].t_code[j]);
+						printf("%02x", code[i].t_code[j]);
+						fprintf(fp,"%02x", code[i].t_code[j]);
 					}
 				}
 			}
 		}
 		printf("\n");
+		fprintf(fp,"\n");
 
+		/*modulation line 처리*/
 		for (int j = 0; j < 5; j++) {
 			if (code[i].m_name[j] == NULL) continue;
-			if (code[i].m_name[j][0] != '\0')
+			if (code[i].m_name[j][0] != '\0') {
 				printf("M%06x%02x%-6s \n", code[i].m_addr[j], code[i].m_length[j], code[i].m_name[j]);
+				fprintf(fp,"M%06x%02x%-6s \n", code[i].m_addr[j], code[i].m_length[j], code[i].m_name[j]);
+			}
+				
 		}
 
+		/*end line 처리*/
 		if (i == 0) {
 			printf("E000000");
+			fprintf(fp,"E000000");
 		}
 		else {
 			printf("E");
+			fprintf(fp,"E");
 		}
-		printf("\n\n\n");
-
+		printf("\n\n");
+		fprintf(fp,"\n\n");
 	}
+
+	printf("file generating is done: %s\n\n", file_name);
 }

@@ -120,8 +120,6 @@ typedef struct _object_code {
 	char* m_name[MAX_LINES];
 	char m_sign[MAX_LINES];
 
-	// E' line
-	int end;
 } object_code;
 object_code code[MAX_SEC];
 
@@ -134,7 +132,6 @@ static char* output_file;
 /*새로 추가한 변수*/
 static int token_table_addr[MAX_LINES];//보고서에 적어야함 TA - PC를 위해서
 static int sym_len[MAX_SEC];//symbol 검색 범위
-static int lit_len[10] = {0};//literal searching arange (in pass1 split literal table;
 static int sec_len[MAX_SEC] = { 0, };//section별 length
 
 
@@ -156,8 +153,8 @@ int split_comma(char* data, char* arr[]);// comma 제거
 int literal_check(char* temp);// literal 중복 체크
 int search_opcode(char* str);//operator -> opcode로 반환
 
-void split_table();
-int reg_num(char c);
-int search_sym(char* s, int mode);
-int search_lit(char* s);
+void split_table();//symbol table split
+int reg_num(char c);//register table
+int search_sym(char* s, int mode);//symbol search return symbol address
+int search_lit(char* s);//literal search return address
 //void search_table(char* s, int mode);//몇 번재 파일인지
