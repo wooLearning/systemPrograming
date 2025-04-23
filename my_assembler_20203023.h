@@ -108,10 +108,12 @@ typedef struct _object_code {
 	char r_name[10][7];
 
 	//T' line
-	int t_addr[MAX_LINES];//each line  start address
+	int t_staddr[MAX_LINES];//each line  start address
+	int t_addr[MAX_LINES];//each addr
 	int t_length[MAX_LINES]; //each line length
 	int t_code[MAX_LINES];//code
 	int t_format[MAX_LINES];
+	int t_lines;//number of lines
 
 	// M' line
 	int m_addr[MAX_LINES]; 
@@ -134,7 +136,7 @@ static char* output_file;
 static int token_table_addr[MAX_LINES];//보고서에 적어야함 TA - PC를 위해서
 static int sym_len[MAX_SEC];//symbol 검색 범위
 static int lit_len[10] = {0};//literal searching arange (in pass1 split literal table;
-
+static int sec_len[MAX_SEC] = { 0, };//section별 length
 
 
 int init_my_assembler(void);
