@@ -92,7 +92,7 @@ int init_my_assembler(void)
  * ============================================================
  *
  * ------------------------------------------------------------
- */
+ */	
 
 int init_inst_file(char* inst_file)
 {
@@ -114,12 +114,12 @@ int init_inst_file(char* inst_file)
 			&inst_table[inst_index]->format,
 			&inst_table[inst_index]->op,
 			&inst_table[inst_index]->ops);//using sscanf for instruction table
-		inst_index++;
 		/*printf("%s %d %x %d\n",
 			inst_table[inst_index]->str,
 			inst_table[inst_index]->format,
 			inst_table[inst_index]->op,
 			inst_table[inst_index]->ops);*/
+		inst_index++;
 	}
 	fclose(file);
 }
@@ -200,13 +200,11 @@ int token_parsing(char* str)
 		}
 	}
 
-
 	/*
 	////////////////////////////////////////////////////////////////////////////////////////////
 	[0] => label [1] => operator [2]=> operand [3] => tap  split
 	////////////////////////////////////////////////////////////////////////////////////////////
 	*/
-
 	len1 = split_tap(str, arr_line); // split like the comment above
 
 	token_table[token_line]->label = _strdup(arr_line[0]);//label parssing
@@ -218,18 +216,14 @@ int token_parsing(char* str)
 			token_table[token_line]->operand[i] = _strdup(arr_operand[i]);//operand parssing
 		}
 	}
-	
 	/*printf("%s %s %s %s %s    \n",
 		token_table[token_line]->label,
 		token_table[token_line]->operator,
 		token_table[token_line]->operand[0],
 		token_table[token_line]->operand[1],
 		token_table[token_line]->operand[2]);*/
-		
 	token_line++;
-
 	return 0;
-
 }
 
 // split by tap
@@ -418,8 +412,8 @@ static int assem_pass1(void)
 			index = -1;
 		}
 		else {
-			index = search_opcode(temp);
-			if (index != -1) {//if it doesn't exist, return -1;
+			index = search_opcode(temp);//if it doesn't exist, return -1;
+			if (index != -1) {
 				if (inst_table[index]->format == 2) {//format 2
 					locctr += 2;
 				}
@@ -585,17 +579,14 @@ void make_symtab_output(char* file_name)
 	}
 	//function 3개 이므로 3번 나눠서
 	for (i = 0; i < 2; i++) {
-		fprintf(fp, "%s\t", sym_table[i].symbol);
-		fprintf(fp, "%04x\n", sym_table[i].addr);
+		fprintf(fp, "%s\t%04x\n", sym_table[i].symbol, sym_table[i].addr);
 		printf("%s\t%04x\n", sym_table[i].symbol, sym_table[i].addr);
 	}
 	for (i = 2; i < sym_index; i++) {
 		if (sym_table[i].addr == 0)printf("\n");
-		fprintf(fp, "%s\t", sym_table[i].symbol);
-		fprintf(fp, "%04x\n", sym_table[i].addr);
+		fprintf(fp, "%s\t%04x\n", sym_table[i].symbol, sym_table[i].addr);
 		printf("%s\t%04x\n", sym_table[i].symbol, sym_table[i].addr);
 	}
-
 	fclose(fp); //file close
 	printf("file generating is done: %s\n\n", file_name);
 }
@@ -623,19 +614,31 @@ void make_literaltab_output(char* filename)
 		return;
 	}
 	for (i = 0; i < literal_index; i++) {
-		fprintf(fp, "%s\t", literal_table[i].literal);
-		fprintf(fp, "%04x\n", literal_table[i].addr);
+		fprintf(fp, "%s\t%04x\n", literal_table[i].literal, literal_table[i].addr);
 		printf("%s\t%04x\n", literal_table[i].literal, literal_table[i].addr);
 	}
 	fclose(fp); //file close
 	printf("file generating is done: %s\n\n", filename);
 }
 
+/*file별 검색 범위 정하기*/
+void split_table() {
+	int i = 0, n = 0;
 
-void make_object() {
-
-	
+	sym_len[0] = 2;
+	for (i = 1; i < MAX_SEC; i++) {
+		sym_len[i] = 0;
+	}
+	for (i = 2; i < sym_index; i++) {
+		if (sym_table[i].addr != 0) {//CSECT일때 symbol table의 주소값이 0으로 바뀐다.
+			sym_len[n]++;
+		}
+		else {
+			sym_len[++n]++;
+		}
+	}
 }
+
 
 //literal도 많아지면 이런식으로 관리해야할 것 같음.
 //이번 과제에서는 literal이 파일 당 하나이고 주소값이 다르기 때문에 굳이 구분하지 않았다.
@@ -643,20 +646,20 @@ int search_sym(char* s, int mode) {//mode : file 범위
 
 	int i = 0, start = 0, end = 0;
 
-	if (mode == 0) {
+	if (mode == 0) {//file 0번 검색 범위
 		start = 0;
 		end = sym_len[0];
 	}
-	else if (mode == 1) {
+	else if (mode == 1) {//file 1번 검색 범위
 		start = sym_len[0];
 		end = start + sym_len[1];
 	}
-	else if (mode == 2) {
+	else if (mode == 2) {//file 2번 검색 범위
 		start = sym_len[0] + sym_len[1];
 		end = start + sym_len[2];
 	}
 
-	for (i = start; i < end; i++) {
+	for (i = start; i < end; i++) {//위에서 정한 범위 만큼만 검색
 		if (strcmp(&sym_table[i].symbol, s) == 0) {
 			return sym_table[i].addr;
 		}
@@ -674,29 +677,10 @@ int search_lit(char* s) {
 	return -1;
 }
 
-/*file별 검색 범위 정하기*/
-void split_table() {
-	int i = 0, n=0;
-
-	sym_len[0] = 2;
-	for (i = 1; i < MAX_SEC; i++) {
-		sym_len[i] = 0;
-	}
-	for (i = 2; i < sym_index; i++) {
-		if (sym_table[i].addr != 0) {
-			sym_len[n]++;
-		}
-		else {
-			sym_len[++n]++;
-		}
-	}
-}
-
 ///reg table
 //return regoster number
 int reg_num(char c) {
-	switch (c)
-	{
+	switch (c){
 	case 'A': return 0; break;
 	case 'X': return 1; break;
 	case 'B': return 3; break;
@@ -976,7 +960,7 @@ static int assem_pass2(void)
 			}
 			else if (format == 4) {
 				ta = search_sym(token_table[i]->operand[0], file_num);
-				if (ta == -1) {//modified 처리 해주기
+				if (ta == -1) {//ta없을 때 modified 처리 해주기 
 					last = 0;
 					if (token_table[i]->operand[0][0] == '#') {
 						last = atoi(token_table[i]->operand[0] + 1);
@@ -995,8 +979,8 @@ static int assem_pass2(void)
 			}
 
 			//format update
-			code[file_num].t_format[i] = format;
-
+			code[file_num].t_format[sec_len[file_num]] = format;
+			
 			/*code 업데이트*/
 			code[file_num].t_code[sec_len[file_num]] = (op << 4) + token_table[i]->nixbpe;
 			if (format == 3) {
@@ -1010,7 +994,6 @@ static int assem_pass2(void)
 			sec_len[file_num]++;//length update
 		}
 	}
-	
 }
 
 /* ------------------------------------------------------------
@@ -1037,13 +1020,14 @@ void make_objectcode_output(char* file_name)
 	int i = 0, j = 0;
 
 	int file_sec = 0;
-	int zflag = 0;//zero flag 0 0 0 연속 나올 때 reserve와 그냥 0 구분
+	int zflag = 0;//zero flag 0 0 0 연속 나올 때 RESW와 그냥 0 구분
 	int start = 0;//start address
 	int t_line = 0;//start, length indexing
 
 	int line_length = 0;
 	int line_num = 0;
 
+	/*HEADER와 DEF Line 처리*/
 	for (i = 0; i < 3; i++) {
 		printf("H%-6s%06x%06x\n", code[i].p_name, code[i].h_start_addr, code[i].p_length);
 		fprintf(fp, "H%-6s%06x%06x\n", code[i].p_name, code[i].h_start_addr, code[i].p_length);
@@ -1060,6 +1044,7 @@ void make_objectcode_output(char* file_name)
 			fprintf(fp,"\n");
 		}
 
+		/*REF Line process*/
 		printf("R");
 		fprintf(fp, "R");
 		for (int j = 0; j < 10; j++) {

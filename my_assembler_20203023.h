@@ -1,7 +1,3 @@
-/*
- * my_assembler 함수를 위한 변수 선언 및 매크로를 담고 있는 헤더 파일이다.
- *
- */
 #define MAX_INST 256
 #define MAX_LINES 5000
 
@@ -10,7 +6,6 @@
 
 /*새로 추가한 define*/
 #define MAX_SEC 3 // file section 3개 MAX 추가 가능
-
 
  /*
  * instruction 목록을 저장하는 구조체이다.
@@ -37,8 +32,6 @@ char* input_data[MAX_LINES];
 static int line_num;
 
 int label_num;
-
-
 /*
  * 어셈블리 할 소스코드를 토큰으로 변환하여 저장하는 구조체 변수이다.
  * operator 변수명은 renaming을 허용한다.
@@ -48,7 +41,7 @@ typedef struct _token {
 	char* operator;
 	char* operand[MAX_OPERAND];
 	char comment[100];
-	char nixbpe;    // 추후 프로젝트에서 사용
+	char nixbpe;
 } token;
 
 // 어셈블리 할 소스코드를 5000라인까지 관리하는 테이블
@@ -58,7 +51,6 @@ static int token_line;
 /*
  * 심볼을 관리하는 구조체이다.
  * 심볼 테이블은 심볼 이름, 심볼의 위치로 구성된다.
- * 추후 프로젝트에서 사용 예정
  */
 typedef struct _symbol
 {
@@ -69,7 +61,6 @@ typedef struct _symbol
 /*
 * 리터럴을 관리하는 구조체이다.
 * 리터럴 테이블은 리터럴의 이름, 리터럴의 위치로 구성된다.
-* 추후 프로젝트에서 사용 예정
 */
 typedef struct _literal {
 	char* literal;
@@ -82,20 +73,13 @@ static int sym_index;
 literal literal_table[MAX_LINES];
 static int literal_index;
 
-
 /**
  * 오브젝트 코드 전체에 대한 정보를 담는 구조체이다.
  * Header Record, Define Recode,
- * Modification Record 등에 대한 정보를 모두 포함하고 있어야 한다. 이
- * 구조체 변수 하나만으로 object code를 충분히 작성할 수 있도록 구조체를 직접
- * 정의해야 한다.
- *
- * 추후 프로젝트에서 사용 예정
+ * Modification Record 정보가 들어있다.
  */
 typedef struct _object_code {
-	/* add fields */
-
-	 // H' line  
+	// H' line  
 	char p_name[7];//program name
 	int h_start_addr;//start adress
 	int p_length;//program length
@@ -115,7 +99,7 @@ typedef struct _object_code {
 	int t_format[MAX_LINES];
 
 	// M' line
-	int m_addr[MAX_LINES]; 
+	int m_addr[MAX_LINES];
 	int m_length[MAX_LINES];
 	char* m_name[MAX_LINES];
 	char m_sign[MAX_LINES];
@@ -124,7 +108,6 @@ typedef struct _object_code {
 object_code code[MAX_SEC];
 
 static int locctr;
-//--------------
 
 static char* input_file;
 static char* output_file;
@@ -133,7 +116,6 @@ static char* output_file;
 static int token_table_addr[MAX_LINES];//보고서에 적어야함 TA - PC를 위해서
 static int sym_len[MAX_SEC];//symbol 검색 범위
 static int sec_len[MAX_SEC] = { 0, };//section별 length
-
 
 int init_my_assembler(void);
 int init_inst_file(char* inst_file);
@@ -157,4 +139,3 @@ void split_table();//symbol table split
 int reg_num(char c);//register table
 int search_sym(char* s, int mode);//symbol search return symbol address
 int search_lit(char* s);//literal search return address
-//void search_table(char* s, int mode);//몇 번재 파일인지
